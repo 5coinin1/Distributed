@@ -6,6 +6,9 @@ def send(port, msg):
     s.send(json.dumps(msg).encode())
     print(s.recv(4096).decode())
     s.close()
+
+#thay vào sau đây để chạy thử
+
 for i in range(10):
     send(5000, {"type":"PUT","key":f"user{i}","value":str(i)})
 
