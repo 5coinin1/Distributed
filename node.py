@@ -86,18 +86,35 @@ class Node:
         t = req["type"]
 
         if t == "PUT":
-            return self.put(req["key"], req["value"])
+            res = self.put(req["key"], req["value"])
+            print(f"[PUT] {req['key']} = {req['value']}")
+            print(self.data)
+            return res
+
         if t == "GET":
             return self.get(req["key"])
+
         if t == "DELETE":
-            return self.delete(req["key"])
+            res = self.delete(req["key"])
+            print(f"[DELETE] {req['key']}")
+            print(self.data)
+            return res
+
         if t == "REPLICA_PUT":
             self.data[req["key"]] = req["value"]
+            print(f"[REPLICA PUT] {req['key']} = {req['value']}")
             print(self.data)
-
             return {"status": "ok"}
+
+        if t == "REPLICA_DELETE":
+            self.data.pop(req["key"], None)
+            print(f"[REPLICA DELETE] {req['key']}")
+            print(self.data)
+            return {"status": "ok"}
+
         if t == "PING":
             return {"type": "PONG"}
+
         if t == "SNAPSHOT":
             return {"data": self.data}
 
@@ -120,8 +137,11 @@ class Node:
         p = self.key_owner(key)
         r = self.replica_owner(p)
 
-        if p == self.node_id and key in self.data:
-            return {"status": "ok", "value": self.data[key]}
+        if p == self.node_id:
+            if key not in self.data or self.data[key] is None:
+                return {"status": "error"}
+            else:
+                return {"status": "ok", "value": self.data[key]}
 
         if self.alive[p]:
             return self.send(p, {"type": "GET", "key": key})
@@ -138,8 +158,12 @@ class Node:
             return self.send(p, {"type": "DELETE", "key": key})
 
         self.data.pop(key, None)
-        if self.alive[r]:
-            self.send(r, {"type": "REPLICA_PUT", "key": key, "value": None})
+
+        if r != self.node_id and self.alive[r]:
+            try:
+                self.send(r, {"type": "REPLICA_DELETE", "key": key})
+            except:
+                pass
 
         return {"status": "ok"}
 
